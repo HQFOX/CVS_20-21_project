@@ -220,8 +220,8 @@ public class CQueue {
 	}
 	
 	void enqueue(int x)
-	//@ requires CQueueInv(this);
-	//@ ensures CQueueInv(this);
+	//@ requires [?f]CQueueInv(this);
+	//@ ensures [f]CQueueInv(this);
 	{
 		mon.lock();
 		//@ open CQueue_shared_state(this)();
@@ -238,8 +238,8 @@ public class CQueue {
 	}
 
 	int dequeue()
-	//@ requires CQueueInv(this);
-	//@ ensures CQueueInv(this);
+	//@ requires [?f]CQueueInv(this);
+	//@ ensures [f]CQueueInv(this);
 	{
 		mon.lock();
 	   	//@ open CQueue_shared_state(this)();
@@ -259,13 +259,120 @@ public class CQueue {
 }
 
 
+
+/*@
+
+	predicate ConsumerInv(Consumer c;) =
+			c.q |-> ?q
+		    &*&	q != null
+		    &*& [_]CQueueInv(q)
+		    &*& c.id |-> ?v
+		    &*& v >= 0
+		    ;
+@*/
+
+class Consumer implements Runnable {
+	
+	CQueue q;
+	int id;
+	
+	//@predicate pre() = ConsumerInv(this) &*& [_] System.out |-> ?o &*& o != null;
+	//@predicate post() = emp;
+	
+	
+	public Consumer( CQueue q, int id)
+	//@ requires q != null &*& frac(?f) &*& [f]CQueueInv(q) &*& id >= 0 &*& [_] System.out |-> ?o &*& o != null;
+	//@ ensures ConsumerInv(this);
+	{
+	
+		this.q = q;
+	
+	}
+	
+	public void run()
+	//@ requires pre();
+	//@ ensures post();
+	{
+		while(true)
+		//@ invariant ConsumerInv(this) &*& [_] System.out |-> ?o &*& o != null;
+		{
+			q.dequeue();
+			System.out.println("dequeue " + Integer.toString(id));
+		}
+	
+	}
+
+}
+
+/*@
+
+	predicate ProducerInv(Producer p;) =
+			p.q |-> ?q
+		    &*&	q != null
+		    &*& [_]CQueueInv(q)
+		    &*& p.id |-> ?v
+		    &*& v >= 0
+		    ;
+@*/
+
+//@ predicate frac(real f) = true;
+
+class Producer implements Runnable {
+
+		
+	CQueue q;
+	int id;
+	
+	//@predicate pre() = ProducerInv(this) &*& [_] System.out |-> ?o &*& o != null;
+	//@predicate post() = emp;
+	
+	public Producer( CQueue q, int id)
+	//@ requires q != null &*& frac(?f) &*& [f]CQueueInv(q) &*& id >= 0 &*& [_] System.out |-> ?o &*& o != null;
+	//@ ensures ProducerInv(this);
+	{
+	
+		this.q = q;
+		this.id = id;
+	
+	}
+	
+	public void run()
+	//@ requires pre();
+	//@ ensures post();
+	{
+		while(true)
+		//@ invariant ProducerInv(this) &*& [_]System.out |-> ?o &*& o != null;
+		{
+			q.enqueue(id);
+			System.out.println("enqueue" + Integer.toString(id));
+		}
+	
+	}
+
+}
+
 class Tester {
 
 	public static void main( String args[] )
-	//@requires true;
+	//@requires [_]System.out |-> ?o &*& o != null;
 	//@ensures true;
     {
-      	CQueue cq = new CQueue(3);
+      		CQueue q = new CQueue(10);
+      		
+      		System.out.println("teste");
+      		//@ assert CQueueInv(q);
+      		//@ close frac(1);
+      		for( int i = 0; i < 50; i++ )
+      		//@ invariant 0 <= i &*& i <= 50 &*& frac(?f) &*& [f]CQueueInv(q) &*& [_] System.out |-> o &*& o != null;
+      		{
+      			//@ open frac(f);
+      			//@ close frac(f/2);
+      			new Thread(new Producer(q,i)).start();
+      			//@ close frac(f/4);
+      			new Thread(new Consumer(q,i)).start();
+      			//@ close frac(f/4);
+      			
+      		}
       	
     }
 
